@@ -1,0 +1,677 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Travelling Salesman Problem</title>
+
+  <style type="text/css">
+  	* {
+  		box-sizing: border-box;
+  		table-layout: fixed;
+  	  }
+  	 .panel {
+			  width: 25%;
+			  height: 100vh;
+			  float: left;
+			}
+	.graph{
+			  width: 75%;
+			  height: 100vh;
+			  float: left;
+			}
+	#edge-popUp
+		 {
+	      display:none;
+	      position:absolute;
+	      top:350px;
+	      left:170px;
+	      z-index:299;
+	      width:250px;
+	      height:90px;
+	      background-color: #f9f9f9;
+	      border-style:solid;
+	      border-width:3px;
+	      border-color: #5394ed;
+	      padding:10px;
+	      text-align: center;
+	    }
+
+  </style>
+
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script type="text/javascript">
+  	function getScaleFreeNetwork(nodeCount) {
+	  var nodes = [];
+	  var edges = [];
+	  var connectionCount = [];
+
+	  // randomly create some nodes and edges
+	  for (var i = 0; i < nodeCount; i++) {
+	    nodes.push({
+	      id: i,
+	      label: String(i)
+	    });
+
+	    connectionCount[i] = 0;
+
+	    // create edges in a scale-free-network way
+	    if (i == 1) {
+	      var from = i;
+	      var to = 0;
+	      var cost = (Math.floor(Math.random() * 100) + 1).toString();
+
+	      edges.push({
+	        from: from,
+	        to: to,
+	        label: cost,
+	        id : edgeId(from, to)
+	      });
+
+	      adj[from].push({
+	      	to : to,
+	      	cost : parseInt(cost, 10)
+	      });
+	      adj[to].push({
+	      	to : from,
+	      	cost : parseInt(cost, 10)
+	      });
+	      
+	      connectionCount[from]++;
+	      connectionCount[to]++;
+	    }
+	    else if (i > 1) {
+	      var conn = edges.length * 2;
+	      var rand = Math.floor(seededRandom() * conn);
+	      var cum = 0;
+	      var j = 0;
+	      while (j < connectionCount.length && cum < rand) {
+	        cum += connectionCount[j];
+	        j++;
+	      }
+
+
+	      var from = i;
+	      var to = j;
+	      var cost = (Math.floor(Math.random() * 100) + 1).toString();
+
+	      edges.push({
+	        from: from,
+	        to: to,
+	        label: cost,
+	        id : edgeId(from, to)
+	      });
+
+	      adj[from].push({
+	      	to : to,
+	      	cost : parseInt(cost, 10)
+	      });
+	      adj[to].push({
+	      	to : from,
+	      	cost : parseInt(cost, 10)
+	      });
+
+
+	      connectionCount[from]++;
+	      connectionCount[to]++;
+	    }
+	  }
+
+	  return {nodes:nodes, edges:edges};
+	}
+
+	var randomSeed = 764; // Math.round(Math.random()*1000);
+	function seededRandom() {
+	  var x = Math.sin(randomSeed++) * 10000;
+	  return x - Math.floor(x);
+	}
+  </script>
+  <script type="text/javascript">
+  	function edgeId(from, to)
+  	{
+  		var id = "";
+  		if(from < to)
+  			id = "e" + String(from) + "-" + String(to);
+  		else
+  			id = "e" + String(to) + "-" + String(from);
+  		return id;
+  	}
+  </script>
+
+  <script type="text/javascript">
+  	const INF = 0x3f3f3f3f;
+  	var adj = null;
+    var nbrNodes = 0;
+    var network = null;
+    var data = null;
+    var seed = 2;
+    var time = 0;
+
+    // randomly create some nodes and edges
+    function drawRandom(nbr_Nodes=25){
+    	nbrNodes = nbr_Nodes;
+    	
+    	adj = null;
+    	adj = new Array(nbrNodes);
+    	for (var i = 0; i < adj.length; i++)
+    		adj[i] = new Array();
+
+    	data = getScaleFreeNetwork(nbrNodes);
+    	draw();
+    }
+
+    function destroy() {
+      if (network !== null) {
+        network.destroy();
+        network = null;
+      }
+    }
+
+    function draw() {
+      destroy();
+      // create a network
+      var container = document.getElementById('mynetwork');
+      var options = {
+        layout: {randomSeed:seed}, 
+        locale: "en",
+        manipulation: {
+          addNode: function (nodeData, callback) {
+            nodeData.label = String(nbrNodes);
+            nodeData.id = nbrNodes;
+            
+            data.nodes.push({
+					      id: nodeData.id,
+					      label: String(nodeData.id)
+					    });
+            adj.push([]);
+            
+            nbrNodes++;
+      		callback(nodeData);
+          },
+          addEdge: function (edgeData, callback) {
+            if (edgeData.from == edgeData.to) {
+              //var r = confirm("Do you want to connect the node to itself?");
+             // if (r != true) {
+                callback(null);
+                return;
+             // }
+            }
+
+            document.getElementById('edge-operation').innerHTML = "Add Edge";
+            editEdge(edgeData, callback);
+          },
+          deleteNode : function (nodeData, callback) {
+          	if(nodeData.nodes[0]===(nbrNodes-1))
+          	{
+          		nbrNodes--;
+          		data.nodes.pop();//find connected edges edge and delete them
+          		deleteNodeEdges(nbrNodes);
+          		adj.pop();
+          		callback(nodeData);
+          	}
+          	else
+          		callback(null);
+          },
+          deleteEdge : function (edgeData, callback){
+          	var edge = network.getConnectedNodes(edgeData.edges[0]);
+          	deleteEdges(edge[0],edge[1]);
+          	callback(edgeData);
+          },
+          editEdge : function (edgeData, callback){
+          	document.getElementById('edge-operation').innerHTML = "Edit Edge";
+            editEdge(edgeData, callback);
+          }
+        },
+		edges:{
+		        scaling: {
+		            customScalingFunction: function (min,max,total,value) {
+		                return value/total;
+		            },
+		            min:1,
+		            max:200
+		        },
+		        color: {
+		            color:'#0567f2',
+		            highlight:'#848484',
+		            hover: '#d3d2cd',
+		            inherit: false,
+		            opacity:1.0
+		        }
+		    }
+
+      };
+      network = new vis.Network(container, data, options);
+    }
+
+    function deleteNodeEdges(node)
+    {
+    	for(var i = 0; i < adj[node].length; i++)
+    	{
+    		var index = adj[adj[node][i].to].findIndex(n => n.to == node);
+    		adj[adj[node][i].to].splice(index, 1);
+    	}
+    }
+    function deleteEdges(from, to)
+    {
+    		var index = adj[from].findIndex(n => n.to == to);
+    		adj[from].splice(index, 1);
+    		index = adj[to].findIndex(n => n.to == from);
+    		adj[to].splice(index, 1);
+    }
+
+    function editEdge(data, callback) {
+      // filling in the popup DOM elements
+      document.getElementById('edge-label').value = data.label;
+      document.getElementById('edge-saveButton').onclick = saveEdgeData.bind(this, data, callback);
+      document.getElementById('edge-cancelButton').onclick = cancelEdgeEdit.bind(this,callback);
+      document.getElementById('edge-popUp').style.display = 'block';
+    }
+
+    function cancelEdgeEdit(callback) {
+      clearEdgePopUp();
+      callback(null);
+    }
+
+    function saveEdgeData(edgeData, callback) {
+      if (typeof edgeData.to === 'object')
+        edgeData.to = edgeData.to.id
+      if (typeof edgeData.from === 'object')
+        edgeData.from = edgeData.from.id
+
+      edgeData.label = document.getElementById('edge-label').value;
+      edgeData.id = edgeId(edgeData.from, edgeData.to);
+
+      if(edgeId(edgeData.from, edgeData.to) in network.body.edges)
+      		deleteEdges(edgeData.from, edgeData.to);
+
+      adj[edgeData.from].push({
+      	to : edgeData.to,
+      	cost : parseInt(edgeData.label, 10)
+      });
+      adj[edgeData.to].push({
+      	to : edgeData.from,
+      	cost : parseInt(edgeData.label, 10)
+      });
+
+      data.edges.push({
+		        from: edgeData.from,
+		        to: edgeData.to,
+		        id: edgeData.id,
+	        	label: edgeData.label
+		      });
+      clearEdgePopUp();
+      callback(edgeData);
+    }
+
+    function clearEdgePopUp() {
+      document.getElementById('edge-saveButton').onclick = null;
+      document.getElementById('edge-cancelButton').onclick = null;
+      document.getElementById('edge-popUp').style.display = 'none';
+    }
+   
+    function init() {	
+      drawRandom();
+    }
+
+    function start(){
+	  drawRandom(parseInt(document.getElementById("nbrNodes").value));
+	}
+
+	function APsDFS(u, visited, disc, low, parent, ap) 
+	{ 
+	  
+	    // Count of children in DFS Tree 
+	    var children = 0; 
+	  
+	    // Mark the current node as visited 
+	    visited[u] = true; 
+	  
+	    // Initialize discovery time and low value 
+	    disc[u] = low[u] = ++time; 
+	  
+	    // Go through all vertices aadjacent to this 
+	    for (var i = 0; i < adj[u].length;++i) 
+	    { 
+	        var v = adj[u][i].to;  // v is current adjacent of u 
+	  
+	        // If v is not visited yet, then make it a child of u 
+	        // in DFS tree and recur for it 
+	        if (!visited[v]) 
+	        { 
+	            children++; 
+	            parent[v] = u; 
+	            APsDFS(v, visited, disc, low, parent, ap); 
+	  
+	            // Check if the subtree rooted with v has a connection to 
+	            // one of the ancestors of u 
+	            low[u]  = Math.min(low[u], low[v]); 
+	  
+	            // u is an articulation point in following cases 
+	  
+	            // (1) u is root of DFS tree and has two or more chilren. 
+	            if (parent[u] == -1 && children > 1) 
+	               ap[u] = true; 
+	  
+	            // (2) If u is not root and low value of one of its child is more 
+	            // than discovery value of u. 
+	            if (parent[u] != -1 && low[v] >= disc[u]) 
+	               ap[u] = true; 
+	        } 
+	  
+	        // Update low value of u for parent function calls. 
+	        else if (v != parent[u]) 
+	            low[u]  = Math.min(low[u], disc[v]); 
+	    } 
+	} 
+	  
+	// The function to do DFS traversal. It uses recursive function APUtil() 
+	function findAPs() 
+	{
+
+	    // Mark all the vertices as not visited 
+	    var visited = new Array(nbrNodes); 
+	    var disc = new Array(nbrNodes); 
+	    var low = new Array(nbrNodes); 
+	    var parent = new Array(nbrNodes); 
+	    var ap = new Array(nbrNodes); // To store articulation points 
+	    time = 0; 
+	  
+	    // Initialize parent and visited, and ap(articulation point) arrays 
+	    for (var i = 0; i < nbrNodes; i++) 
+	    { 
+	        parent[i] = -1; 
+	        visited[i] = false; 
+	        ap[i] = false; 
+	    } 
+	  
+	    // Call the recursive APsDFS function to find articulation points 
+	    // in DFS tree rooted with vertex 'i' 
+	    for (var i = 0; i < nbrNodes; i++) 
+	        if (visited[i] == false) 
+	            APsDFS(i, visited, disc, low, parent, ap); 
+
+	  	var aps = [];
+	  	for (var i = 0; i < nbrNodes; i++) 
+        	if (ap[i] == true) 
+        	{
+        		aps.push(i);
+        		network.body.nodes[i].options.color.background = '#feb24c';
+        	}
+        	else
+        		network.body.nodes[i].options.color.background = '#97C2FC';
+        
+        if(aps.length===0)
+        	window.alert("There are no Articulation Points.");
+        else
+        	window.alert("Articulation Points are the nodes : [ " + aps +" ]");
+
+	  	network.redraw();
+	} 
+
+	function areAdjacent(from, to)
+	{
+		if(adj[from].findIndex(n => n.to == to) == -1)
+			return false;
+		return true;
+	}
+
+  </script>
+
+  <script type="text/javascript">
+  	
+		// User defined class 
+		// to store element and its priority 
+		class QElement { 
+		    constructor(element, priority) 
+		    { 
+		        this.element = element; 
+		        this.priority = priority; 
+		    } 
+		} 
+		  
+		// PriorityQueue class 
+		class PriorityQueue { 
+		  
+		    // An array is used to implement priority 
+		    constructor() 
+		    { 
+		        this.items = []; 
+		    } 
+		  
+			// enqueue function to add element 
+			// to the queue as per priority 
+			enqueue(element, priority) 
+			{ 
+				// creating object from queue element 
+				var qElement = new QElement(element, priority); 
+				var contain = false; 
+
+				// iterating through the entire 
+				// item array to add element at the 
+				// correct location of the Queue 
+				for (var i = 0; i < this.items.length; i++) { 
+					if (this.items[i].priority > qElement.priority) { 
+						// Once the correct location is found it is 
+						// enqueued 
+						this.items.splice(i, 0, qElement); 
+						contain = true; 
+						break; 
+					} 
+				} 
+
+				// if the element have the highest priority 
+				// it is added at the end of the queue 
+				if (!contain) { 
+					this.items.push(qElement); 
+				} 
+			} 
+			// dequeue method to remove 
+			// element from the queue 
+			dequeue() 
+			{ 
+				// return the dequeued element 
+				// and remove it. 
+				// if the queue is empty 
+				// returns Underflow 
+				if (this.isEmpty()) 
+					return "Underflow"; 
+				return this.items.shift(); 
+			} 
+			// front function 
+			front() 
+			{ 
+				// returns the highest priority element 
+				// in the Priority queue without removing it. 
+				if (this.isEmpty()) 
+					return "No elements in Queue"; 
+				return this.items[0]; 
+			} 
+			// rear function 
+			rear() 
+			{ 
+				// returns the lowest priorty 
+				// element of the queue 
+				if (this.isEmpty()) 
+					return "No elements in Queue"; 
+				return this.items[this.items.length - 1]; 
+			} 
+
+			// isEmpty function 
+			isEmpty() 
+			{ 
+				// return true if the queue is empty. 
+				return this.items.length == 0; 
+			} 
+			// printQueue function 
+			// prints all the element of the queue 
+			printPQueue() 
+			{ 
+				var str = ""; 
+				for (var i = 0; i < this.items.length; i++) 
+					str += this.items[i].element + " "; 
+				return str; 
+			} 
+		}
+
+		function test()
+		{
+		/*
+			// creating object for queue classs 
+			var priorityQueue = new PriorityQueue(); 
+
+			// testing isEmpty and front on an empty queue 
+			// return true 
+			console.log(priorityQueue.isEmpty()); 
+
+			// returns "No elements in Queue" 
+			console.log(priorityQueue.front()); 
+
+			// adding elements to the queue 
+			priorityQueue.enqueue("Sumit", 2); 
+			priorityQueue.enqueue("Gourav", 1); 
+			priorityQueue.enqueue("Piyush", 1); 
+			priorityQueue.enqueue("Sunny", 2); 
+			priorityQueue.enqueue("Sheru", 3); 
+
+			// prints [Gourav Piyush Sumit Sunny Sheru] 
+			console.log(priorityQueue.printPQueue()); 
+
+			// prints Gourav 
+			console.log(priorityQueue.front().element); 
+
+			// pritns Sheru 
+			console.log(priorityQueue.rear().element); 
+
+			// removes Gouurav 
+			// priorityQueue contains 
+			// [Piyush Sumit Sunny Sheru] 
+			console.log(priorityQueue.dequeue().element); 
+
+			// Adding another element to the queue 
+			priorityQueue.enqueue("Sunil", 2); 
+
+			// prints [Piyush Sumit Sunny Sunil Sheru] 
+			console.log(priorityQueue.printPQueue()); 
+		*/
+			console.log(data);
+			console.log(adj);
+			console.log(network.body);
+
+		}
+  </script>
+  <script type="text/javascript">
+	  	// Prints shortest paths from src to all other vertices 
+	function primMST(adj, V, start) 
+	{ 
+		// Create a priority queue to store vertices that 
+		// are being preinMST. This is weird syntax in C++. 
+		// Refer below link for details of this syntax 
+		// http://geeksquiz.com/implement-min-heap-using-stl/ 
+		var pq  = new PriorityQueue(); 
+
+		var src = start; // Taking vertex start as source 
+
+		// Create a vector for keys and initialize all 
+		// keys as infinite (INF) 
+		var key = [];
+		for(var i = 0; i < V; i++)
+			key.push(INF); 
+
+		// To store parent array which in turn store MST 
+		var parent = [];
+		for(var i = 0; i < V; i++)
+			parent.push(-1); 
+
+		// To keep track of vertices included in MST 
+		var inMST = [];
+		for(var i = 0; i < V; i++)
+			inMST.push(false); 
+
+
+		// Insert source itself in priority queue and initialize 
+		// its key as 0. 
+		pq.enqueue(src, 0); 
+		key[src] = 0;
+
+		/* Looping till priority queue becomes empty */
+		while (!pq.isEmpty()) 
+		{ 
+			// The first vertex in pair is the minimum key 
+			// vertex, extract it from priority queue. 
+			// vertex label is stored in second of pair (it 
+			// has to be done this way to keep the vertices 
+			// sorted key (key must be first item 
+			// in pair) 
+			var u = pq.front().element;
+			pq.dequeue(); 
+
+			inMST[u] = true; // Include vertex in MST 
+
+			// Traverse all adjacent of u 
+			for(var i = 0; i < adj[u].length; i++) 
+			{ 
+				var x = adj[u][i];
+				// Get vertex label and weight of current adjacent 
+				// of u. 
+				var v = x.to; 
+				var weight = x.cost; 
+console.log("v : " + typeof(v));
+console.log("weight : " + typeof(weight));
+				// If v is not in MST and weight of (u,v) is smaller 
+				// than current key of v 
+				if (inMST[v] === false && key[v] > weight) 
+				{ 
+					// Updating key of v 
+					key[v] = weight; 
+					pq.enqueue(v, key[v]); 
+					parent[v] = u; 
+				} 
+			} 
+		} 
+
+		for (var i = 1; i < V; ++i) 
+		{
+			if(parent[i] >= 0){
+				console.log(parent[i] + " - " + i);
+				network.body.edges[edgeId(parent[i],i)].options.color.color = '#feb24c';
+				network.body.nodes[i].options.color.background = '#feb24c';
+				network.body.nodes[parent[i]].options.color.background = '#feb24c';
+			}
+		}
+		network.redraw();
+	} 
+
+	function findMst()
+	{
+		primMST(adj, nbrNodes, 0);
+		/*/ Print edges of MST using parent array 
+		for (var i = 1; i < mst.length; ++i) 
+			console.log(mst[i] + " - " + i);
+*/
+	}
+  </script>
+</head>
+
+<body onload="init();">
+
+	<div id="mynetwork" class="graph"></div>
+	<div  id="control" class="panel">
+		
+			<div class="row">Enter the number of nodes : <input type="number" id="nbrNodes" min="1" max="50" value="5"></div>
+			<div class="row"><button onclick="start()" >Draw</button></div>
+			<div class="row"><span><button onclick="findAPs()" >Find articulation points</button></span></div>
+			<div class="row"><span><button onclick="test()" >test</button></span></div>
+			<div class="row"><span><button onclick="findMst()" >Find Minimum Spanning Tree</button></span></div>
+	</div>
+	
+	<div id="edge-popUp">
+	  <span id="edge-operation">edge</span> <br>
+	  <table style="margin:auto;">
+	    <tr>
+	      <td>Cost</td><td><input id="edge-label" type="number"  min="1" max="1000" value="5" /></td>
+	    </tr></table>
+	  <input type="button" value="save" id="edge-saveButton" />
+	  <input type="button" value="cancel" id="edge-cancelButton" />
+	</div>
+
+</body>
+</html>
