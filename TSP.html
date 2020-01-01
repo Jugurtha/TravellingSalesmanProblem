@@ -145,6 +145,8 @@
     var data = null;
     var seed = 2;
     var time = 0;
+    var route = null;
+    var treeAdj = null;
 
     // randomly create some nodes and edges
     function drawRandom(nbr_Nodes=25){
@@ -235,7 +237,8 @@
 		            hover: '#d3d2cd',
 		            inherit: false,
 		            opacity:1.0
-		        }
+		        },
+		        physics : false
 		    }
 
       };
@@ -643,6 +646,62 @@
 		}
 		network.redraw();
 	}
+
+	function buildTree(parent)
+	{
+		var treeAdj = new Array(nbrNodes);
+    	
+    	for (var i = 0; i < treeAdj.length; i++)
+    		treeAdj[i] = new Array();
+
+    	for(var i = 0; i < nbrNodes; i++)
+    		if(parent[i] >= 0){
+				treeAdj[i].push(parent[i]);
+			    treeAdj[parent[i]].push(i);
+			}
+
+		return treeAdj;
+	}
+
+	function solveTSP(v)
+	{
+		route = [];
+		var parent  = primMST(adj, nbrNodes, 0);
+		treeAdj = buildTree(parent);
+
+		var visited = [];
+		for(var i = 0; i < nbrNodes; i++)
+			visited.push(false);
+
+		DFSUtil(v, visited);
+		route.push(v);
+
+		for (var i = 0; i < nbrNodes; ++i) 
+		{
+			network.body.edges[edgeId(route[i],route[i+1])].options.color.color = '#00ff00';
+			network.body.nodes[i].options.color.background = '#00ff00'
+		}
+		network.redraw();
+
+		console.log(route);
+	}
+
+	function DFSUtil(v, visited)
+    {
+        // Mark the current node as visited and print it
+        visited[v] = true;
+        route.push(v);
+
+        // Recur for all the vertices adjacent to this vertex
+        for(var i = 0; i < treeAdj[v].length; i++)
+        {
+            var n = treeAdj[v][i];
+            if (!visited[n])
+                DFSUtil(n,visited);
+        }
+    }
+
+
   </script>
 </head>
 
@@ -654,8 +713,10 @@
 			<div class="row">Enter the number of nodes : <input type="number" id="nbrNodes" min="1" max="50" value="5"></div>
 			<div class="row"><button onclick="start()" >Draw</button></div>
 			<div class="row"><span><button onclick="findAPs()" >Find articulation points</button></span></div>
-			<div class="row"><span><button onclick="test()" >test</button></span></div>
+			<!--<div class="row"><span><button onclick="test()" >test</button></span></div>-->
 			<div class="row"><span><button onclick="findMst()" >Find Minimum Spanning Tree</button></span></div>
+			<div class="row"><span><button onclick="solveTSP(0)" >Solve TSP From 0</button></span></div>
+
 	</div>
 	
 	<div id="edge-popUp">
