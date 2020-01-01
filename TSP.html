@@ -614,8 +614,6 @@
 				// of u. 
 				var v = x.to; 
 				var weight = x.cost; 
-console.log("v : " + typeof(v));
-console.log("weight : " + typeof(weight));
 				// If v is not in MST and weight of (u,v) is smaller 
 				// than current key of v 
 				if (inMST[v] === false && key[v] > weight) 
@@ -628,7 +626,13 @@ console.log("weight : " + typeof(weight));
 			} 
 		} 
 
-		for (var i = 1; i < V; ++i) 
+		return parent;
+	} 
+
+	function findMst()
+	{
+		var parent  = primMST(adj, nbrNodes, 0);
+		for (var i = 1; i < nbrNodes; ++i) 
 		{
 			if(parent[i] >= 0){
 				console.log(parent[i] + " - " + i);
@@ -638,15 +642,6 @@ console.log("weight : " + typeof(weight));
 			}
 		}
 		network.redraw();
-	} 
-
-	function findMst()
-	{
-		primMST(adj, nbrNodes, 0);
-		/*/ Print edges of MST using parent array 
-		for (var i = 1; i < mst.length; ++i) 
-			console.log(mst[i] + " - " + i);
-*/
 	}
   </script>
 </head>
