@@ -638,7 +638,7 @@
 		for (var i = 1; i < nbrNodes; ++i) 
 		{
 			if(parent[i] >= 0){
-				console.log(parent[i] + " - " + i);
+//				console.log(parent[i] + " - " + i);
 				network.body.edges[edgeId(parent[i],i)].options.color.color = '#feb24c';
 				network.body.nodes[i].options.color.background = '#feb24c';
 				network.body.nodes[parent[i]].options.color.background = '#feb24c';
@@ -676,6 +676,9 @@
 		DFSUtil(v, visited);
 		route.push(v);
 
+		for(edge in network.body.edges)
+			network.body.edges[edge].options.color.color = '#ededed';
+
 		for (var i = 0; i < nbrNodes; ++i) 
 		{
 			network.body.edges[edgeId(route[i],route[i+1])].options.color.color = '#00ff00';
@@ -683,7 +686,8 @@
 		}
 		network.redraw();
 
-		console.log(route);
+		window.alert("The solution for this TSP is : [ " + route +" ]");
+		//console.log(route);
 	}
 
 	function DFSUtil(v, visited)
@@ -701,6 +705,34 @@
         }
     }
 
+    function completeGraph()
+    {
+    	for (var i = 0; i < nbrNodes; ++i) 
+		{
+			for (var j = 0; j < nbrNodes; ++j) 
+			{
+				if(i!=j && !areAdjacent(i, j))
+				{
+					adj[i].push({
+				      	to : j,
+				      	cost : INF
+			     	 });
+				    adj[j].push({
+				      	to : i,
+				      	cost : INF
+				      });
+				    data.edges.push({
+				        from: i,
+				        to: j,
+				        label: INF,
+				        id : edgeId(i, j)
+				      });
+				}
+			}
+		}
+		draw();
+    }
+
 
   </script>
 </head>
@@ -713,7 +745,8 @@
 			<div class="row">Enter the number of nodes : <input type="number" id="nbrNodes" min="1" max="50" value="5"></div>
 			<div class="row"><button onclick="start()" >Draw</button></div>
 			<div class="row"><span><button onclick="findAPs()" >Find articulation points</button></span></div>
-			<!--<div class="row"><span><button onclick="test()" >test</button></span></div>-->
+			<div class="row"><span><button onclick="test()" >test</button></span></div>
+			<div class="row"><span><button onclick="completeGraph()" >Complete Graph</button></span></div>
 			<div class="row"><span><button onclick="findMst()" >Find Minimum Spanning Tree</button></span></div>
 			<div class="row"><span><button onclick="solveTSP(0)" >Solve TSP From 0</button></span></div>
 
